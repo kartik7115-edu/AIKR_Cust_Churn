@@ -107,6 +107,13 @@ def utility_function(customer, action, risk):
     return utility
 
 
+customer_dict = {
+    "Age": age,
+    "Balance": balance,
+    "NumOfProducts": num_products,
+    "IsActiveMember": is_active
+}
+
 def choose_best_action(customer, risk):
 
     actions = [
