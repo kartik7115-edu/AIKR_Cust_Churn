@@ -18,20 +18,17 @@ client = Groq(api_key="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"
 def generate_strategy(customer_data, risk, prob):
 
     prompt = f"""
-You are a banking customer retention expert.
+The system selected this action:
+
+Action: {best_action}
+Utility Score: {score}
 
 Customer details:
 Age: {customer_data['Age']}
 Tenure: {customer_data['Tenure']}
 Balance: {customer_data['Balance']}
-Products: {customer_data['NumOfProducts']}
-Active Member: {customer_data['IsActiveMember']}
 
-Churn probability: {prob:.2f}
-Risk Level: {risk}
-
-Suggest 2 specific retention strategies a bank could apply.
-Explain briefly why each strategy may reduce churn.
+Explain why this is the best retention strategy.
 """
 
     response = client.chat.completions.create(
@@ -73,6 +70,64 @@ def risk_level(prob):
     else:
         return "LOW"
 
+# ------------------------------
+# Utility-Based Agent
+# ------------------------------
+
+def utility_function(customer, action, risk):
+
+    utility = 0
+
+    if risk == "HIGH":
+        utility += 50
+    elif risk == "MEDIUM":
+        utility += 30
+    else:
+        utility += 10
+
+    if action == "Do Nothing":
+        utility -= 20
+
+    elif action == "Send Promotional Offer":
+        if customer["IsActiveMember"] == 0:
+            utility += 20
+
+    elif action == "Cross-sell Products":
+        if customer["NumOfProducts"] <= 1:
+            utility += 25
+
+    elif action == "Assign Relationship Manager":
+        if customer["Balance"] > 100000:
+            utility += 30
+
+    elif action == "Direct Retention Call":
+        if risk == "HIGH":
+            utility += 40
+
+    return utility
+
+
+def choose_best_action(customer, risk):
+
+    actions = [
+        "Do Nothing",
+        "Send Promotional Offer",
+        "Cross-sell Products",
+        "Assign Relationship Manager",
+        "Direct Retention Call"
+    ]
+
+    best_action = None
+    best_score = -float('inf')
+
+    for action in actions:
+        score = utility_function(customer, action, risk)
+
+        if score > best_score:
+            best_score = score
+            best_action = action
+
+    return best_action, best_score
 
 # ------------------------------
 # Streamlit UI
@@ -133,7 +188,9 @@ if st.button("Predict Churn"):
     prediction_proba = prediction[0][0]
 
     risk = risk_level(prediction_proba)
+    best_action, score = choose_best_action(customer_dict, risk)
 
+    
     # ------------------------------
     # Prediction Output
     # ------------------------------
@@ -155,6 +212,11 @@ if st.button("Predict Churn"):
     else:
         st.success("🟢 LOW CHURN RISK")
 
+    st.subheader("AI Decision Engine (Utility-Based Agent)")
+
+    st.write(f"Best Action: {best_action}")
+    st.write(f"Utility Score: {score}")
+    
     # Basic classification message
     if prediction_proba > 0.5:
         st.error("The customer is likely to churn.")
